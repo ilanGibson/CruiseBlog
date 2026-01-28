@@ -24,9 +24,9 @@ func (s *Server) joinServer(w http.ResponseWriter, req *http.Request) {
 		cookie.Name = "username"
 		cookie.Value = getRandValue()
 		http.SetCookie(w, cookie)
-		fmt.Println(cookie.Value)
-	} else {
 	}
+
+	http.Redirect(w, req, "/home", http.StatusSeeOther)
 }
 
 func (s *Server) addPost(w http.ResponseWriter, req *http.Request) {
@@ -56,8 +56,8 @@ func getRandValue() string {
 func main() {
 	blogSrvr := &Server{blog: make([]Post, 0)}
 
-	http.Handle("/", http.FileServer(http.Dir("./static")))
-	http.HandleFunc("/hel", blogSrvr.joinServer)
+	http.Handle("/home/", http.StripPrefix("/home", http.FileServer(http.Dir("./static"))))
+	http.HandleFunc("/join", blogSrvr.joinServer)
 	http.HandleFunc("/add", blogSrvr.addPost)
 	fmt.Println("running server...")
 	http.ListenAndServe(":8090", nil)
