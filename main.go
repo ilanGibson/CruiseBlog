@@ -2,45 +2,63 @@ package main
 
 import (
 	"fmt"
+	"math/rand"
 	"net/http"
-	"sync"
+	"strings"
 )
 
-type connectionCounter struct {
-	connections int
-	sync.Mutex
+type Post struct {
+	username string
+	// todo add title
+	content string
 }
 
-type user struct {
+type Server struct {
+	blog []Post
 }
 
-func (c *connectionCounter) addConnection() {
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-	c.connections++
+func (s *Server) joinServer(w http.ResponseWriter, req *http.Request) {
+	_, err := req.Cookie("username")
+	if err != nil {
+		cookie := new(http.Cookie)
+		cookie.Name = "username"
+		cookie.Value = getRandValue()
+		http.SetCookie(w, cookie)
+		fmt.Println(cookie.Value)
+	} else {
+	}
 }
 
-func (c *connectionCounter) removeConnection() {
-	c.Mutex.Lock()
-	defer c.Mutex.Unlock()
-	c.connections--
+func (s *Server) addPost(w http.ResponseWriter, req *http.Request) {
+	existingCookie, err := req.Cookie("username")
+	if err == nil {
+		s.blog = append(s.blog, Post{username: existingCookie.Value, content: "yes"})
+		fmt.Printf("added: %v=yes", existingCookie.Value)
+		fmt.Fprint(w, s.blog)
+	} else {
+		fmt.Fprint(w, "missing cookie")
+	}
 }
 
-func hello(w http.ResponseWriter, req *http.Request) {
-	cookie := new(http.Cookie)
-	cookie.Name = "username"
-	cookie.Value = "dilliontomphson"
-	fmt.Printf("%+v\n", cookie)
-	http.SetCookie(w, cookie)
-	fmt.Fprint(w, "hello\n")
-}
+func getRandValue() string {
+	var characters = []rune("ABCDEFG0123456789")
+	var sb strings.Builder
 
-var c connectionCounter
+	for range 8 {
+		randomIndex := rand.Intn(len(characters))
+		randomChar := characters[randomIndex]
+		sb.WriteRune(randomChar)
+	}
+
+	return sb.String()
+}
 
 func main() {
-	// msgs := make(map[string]string)
-	http.HandleFunc("/hel", hello)
+	blogSrvr := &Server{blog: make([]Post, 0)}
 
+	http.Handle("/", http.FileServer(http.Dir("./static")))
+	http.HandleFunc("/hel", blogSrvr.joinServer)
+	http.HandleFunc("/add", blogSrvr.addPost)
 	fmt.Println("running server...")
 	http.ListenAndServe(":8090", nil)
 }
