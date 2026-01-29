@@ -18,12 +18,14 @@ type Server struct {
 }
 
 func (s *Server) joinServer(w http.ResponseWriter, req *http.Request) {
+
 	_, err := req.Cookie("username")
 	if err != nil {
 		cookie := new(http.Cookie)
 		cookie.Name = "username"
 		cookie.Value = getRandValue()
 		http.SetCookie(w, cookie)
+		http.Redirect(w, req, "/home/about.html", http.StatusSeeOther)
 	}
 
 	http.Redirect(w, req, "/home", http.StatusSeeOther)
@@ -55,9 +57,9 @@ func getRandValue() string {
 
 func main() {
 	blogSrvr := &Server{blog: make([]Post, 0)}
+	http.HandleFunc("/", blogSrvr.joinServer)
 
 	http.Handle("/home/", http.StripPrefix("/home", http.FileServer(http.Dir("./static"))))
-	http.HandleFunc("/join", blogSrvr.joinServer)
 	http.HandleFunc("/add", blogSrvr.addPost)
 	fmt.Println("running server...")
 	http.ListenAndServe(":8090", nil)
