@@ -10,8 +10,7 @@ import (
 func CleanPost(content string) bool {
 	badWords := []string{"fuck", "shit", "ass", "bitch", "cunt", "whore"}
 	// maxPostLen
-	content = "fuck"
-	//
+
 	// againstLangPolicyFlag = check if content contains badWords
 	if slices.Contains(badWords, content) {
 		fmt.Println("here")

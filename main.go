@@ -48,33 +48,27 @@ func (s *Server) joinServer(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) addPost(w http.ResponseWriter, req *http.Request) {
-	fmt.Println("addPost func not available rn")
-	// get post content as string
-	// tempContent := req.Body
-	tempContent, _ := (io.ReadAll(req.Body))
+	// get post content
+	body, _ := (io.ReadAll(req.Body))
 	defer req.Body.Close()
 
-	fmt.Println(string(tempContent))
+	tempContent := string(body)
+	fmt.Println(tempContent)
 
-	// get post username
-	tempUsername := (req.Context().Value(userID))
-	var f []byte
+	// get userID cookie value
+	username := (req.Context().Value(userID)).(*http.Cookie).Value
 
 	if CleanPost(string(tempContent)) {
-		w.Header().Set("Content-Type", "application/json")
+		newPost := Post{Username: fmt.Sprint(username), Content: fmt.Sprint(tempContent)}
 		// add post to []Post
-		newPost := Post{Username: fmt.Sprint(tempUsername), Content: string(tempContent)}
 		s.blog = append(s.blog, newPost)
-		f, _ = json.Marshal(newPost)
-		fmt.Fprint(w, string(f))
+		f, _ := json.Marshal(newPost)
+		println(f)
+		w.Write(f)
 	} else {
-		f = []byte("against cruiseBlog policy")
-		fmt.Println("bad language")
+		f, _ := json.Marshal("against cruise blog policy")
+		w.Write(f)
 	}
-
-	// send response
-	fmt.Fprint(w, string(f))
-	// http.Redirect(w, req, "/home", http.StatusSeeOther)
 }
 
 func requireAuth(next http.HandlerFunc) http.HandlerFunc {
