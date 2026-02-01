@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CruiseBlog</title>
-    <link rel="stylesheet" href="style.css"
+    <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <header>
@@ -12,16 +12,22 @@
         <nav>
             <a href="/home">Home</a>
             <a href="/home/about.html">About</a>
-            <a href="/home/bleeg.html">Bleeg</a>
         </nav>
     </header>
 
     <main>
         <section class="blog-post">
+            <p class="date">February 1, 2026</p>
+            <form id="blogForm">
+              <input type="text" id="blogInput" name="blogPost" placeholder="Whats on your mind..."/>
+              <button id="submitBtn">Submit</button>
+            </form>
+        </section>
+        <section class="blog-post">
             <p class="date">January 28, 2026</p>
             <p>Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.</p>
         </section>
-    </main
+    </main>
 
     <footer>
         <p>&copy; 2026 CruiseBlog</p>
