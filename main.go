@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	// "reflect"
 )
@@ -16,6 +17,10 @@ var userID Key
 // slice[username]
 // username is given to user via cookie
 var Users []string
+
+type Request struct {
+	Content string `json:"content"`
+}
 
 type Post struct {
 	// todo date
@@ -52,8 +57,11 @@ func (s *Server) addPost(w http.ResponseWriter, req *http.Request) {
 	body, _ := (io.ReadAll(req.Body))
 	defer req.Body.Close()
 
-	tempContent := string(body)
-	fmt.Println(tempContent)
+	var content Request
+	err := json.Unmarshal(body, &content)
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// get userID cookie value
 	username := (req.Context().Value(userID)).(*http.Cookie).Value
@@ -63,7 +71,6 @@ func (s *Server) addPost(w http.ResponseWriter, req *http.Request) {
 		// add post to []Post
 		s.blog = append(s.blog, newPost)
 		f, _ := json.Marshal(newPost)
-		println(f)
 		w.Write(f)
 	} else {
 		f, _ := json.Marshal("against cruise blog policy")
