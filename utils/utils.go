@@ -1,10 +1,14 @@
-package main
+package utils
 
 import (
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"os"
 	"slices"
 	"strings"
+
+	"CruiseBlog/types"
 )
 
 func CleanPost(content string) bool {
@@ -18,6 +22,23 @@ func CleanPost(content string) bool {
 	}
 	// againstLengthPolicyFlag = check if content within maxPostLen
 	return true
+}
+
+func SavePost(contents types.Post) error {
+	c, err := json.Marshal(contents)
+	if err != nil {
+		fmt.Println("cant marshal contents", err)
+	}
+	c = append(c, '\n')
+
+	f, err := os.OpenFile("./blog.jsonl", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+
+	_, err = f.Write(c)
+	return err
 }
 
 func GetRandValue() string {
