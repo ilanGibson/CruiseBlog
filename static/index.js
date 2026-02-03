@@ -1,29 +1,59 @@
+const homeBtn = document.getElementById("home-btn");
+const aboutBtn = document.getElementById("about-btn");
 const form = document.getElementById("blogForm");
 const input = document.getElementById("blogInput");
 const blogContainer = document.getElementById("blog-container");
+
+if (window.location.pathname === "/home/") {
+  listPosts();
+}
+
+homeBtn.addEventListener("click", function (event) {
+  listPosts();
+});
 
 form.addEventListener("submit", function (event) {
   event.preventDefault();
 
   fetch('http://localhost:8090/api/posts', {
-  method: 'POST',
-  headers: {
-  'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({content : input.value})
+    method: 'POST',
+    headers: {
+    'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({content : input.value})
   })
   .then(res => res.json())
   .then(data => {
-      const today = new Date();
-      newPost(today, data.username, data.content)
+    const today = new Date();
+    newPost(today, data.username, data.content);
 
 
-      input.value = ""
-    })
+    input.value = "";
+  })
   .catch(err => {
-      console.error("hi",err)
-    })
+    console.error("form submit err",err)
+  })
 });
+
+function listPosts() {
+  fetch('http://localhost:8090/api/posts')
+    .then(res => {
+      if (!res.ok) {
+        throw new Error('network res was not ok ' + response.status);
+      }
+      return res.json();
+    })
+    .then(data => {
+      blogContainer.replaceChildren();
+      for (let i = 0; i < data.length; i++) {
+        const today = new Date();
+        newPost(today, data[i].username, data[i].content);
+      }
+    })
+    .catch(err => {
+      console.error("list posts err", err)
+    })
+}
 
 function newPost(dateOfPost, postUsername, postContent) {
   const newPost = document.createElement('section');

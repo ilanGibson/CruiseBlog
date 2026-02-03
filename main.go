@@ -7,6 +7,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"time"
 	// "reflect"
 )
 
@@ -23,9 +24,9 @@ type Request struct {
 }
 
 type Post struct {
-	// todo date
-	Username string `json:"username"`
-	Content  string `json:"content"`
+	DateOfPost string `json:"date"`
+	Username   string `json:"username"`
+	Content    string `json:"content"`
 }
 
 type Server struct {
@@ -66,8 +67,10 @@ func (s *Server) addPost(w http.ResponseWriter, req *http.Request) {
 	// get userID cookie value
 	username := (req.Context().Value(userID)).(*http.Cookie).Value
 
-	if CleanPost(string(tempContent)) {
-		newPost := Post{Username: fmt.Sprint(username), Content: fmt.Sprint(tempContent)}
+	// if CleanPost(string(tempContent)) {
+	if CleanPost("") {
+		date := time.Now()
+		newPost := Post{DateOfPost: fmt.Sprint(date), Username: fmt.Sprint(username), Content: fmt.Sprint(content.Content)}
 		// add post to []Post
 		s.blog = append(s.blog, newPost)
 		f, _ := json.Marshal(newPost)
@@ -78,7 +81,18 @@ func (s *Server) addPost(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func requireAuth(next http.HandlerFunc) http.HandlerFunc {
+func (s *Server) getPosts(w http.ResponseWriter, _ *http.Request) {
+	f, err := json.Marshal(s.blog)
+	if err != nil {
+		log.Fatal("get post err", err)
+	}
+	_, err = w.Write(f)
+	if err != nil {
+		fmt.Println("get posts err", err)
+	}
+}
+
+func requireAuth(s *Server) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		username, err := req.Cookie("username")
 		if err != nil {
@@ -86,8 +100,13 @@ func requireAuth(next http.HandlerFunc) http.HandlerFunc {
 			return
 		}
 
-		ctx := context.WithValue(req.Context(), userID, username)
-		next(w, req.WithContext(ctx))
+		switch req.Method {
+		case "POST":
+			ctx := context.WithValue(req.Context(), userID, username)
+			s.addPost(w, req.WithContext(ctx))
+		case "GET":
+			s.getPosts(w, req)
+		}
 	}
 }
 
@@ -96,7 +115,7 @@ func main() {
 	http.HandleFunc("/", blogSrvr.joinServer)
 
 	http.Handle("/home/", http.StripPrefix("/home", http.FileServer(http.Dir("./static"))))
-	http.HandleFunc("/api/posts", requireAuth(blogSrvr.addPost))
+	http.HandleFunc("/api/posts", requireAuth(blogSrvr))
 	fmt.Println("running server...")
 	http.ListenAndServe(":8090", nil)
 }
