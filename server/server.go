@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"CruiseBlog/types"
@@ -16,7 +17,9 @@ import (
 var userID types.Key
 
 type Server struct {
-	blog []types.Post
+	blog       []types.Post
+	blogMu     sync.RWMutex
+	lastLoaded time.Time
 }
 
 func NewServer() *Server {
@@ -39,6 +42,7 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 		http.SetCookie(w, cookie)
 		http.Redirect(w, req, "/home/about.html", http.StatusSeeOther)
 	} else {
+		s.LoadPosts()
 		http.Redirect(w, req, "/home", http.StatusSeeOther)
 	}
 }
@@ -66,7 +70,12 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 		// add post to []Post
 		s.blog = append(s.blog, newPost)
 		f, _ := json.Marshal(newPost)
-		// TODO swap response write and file write and handle err
+		err := utils.SavePost(newPost)
+
+		if err != nil {
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
 		w.Write(f)
 	} else {
 		f, _ := json.Marshal("against cruise blog policy")
@@ -83,6 +92,38 @@ func (s *Server) GetPosts(w http.ResponseWriter, _ *http.Request) {
 	if err != nil {
 		fmt.Println("get posts err", err)
 	}
+}
+
+func (s *Server) LoadPosts() {
+	fmt.Println("reading from disk")
+	posts, err := utils.GetPostsFromDisk()
+	if err != nil {
+		fmt.Println("loading posts from disk err", err)
+		return
+	}
+
+	s.blogMu.Lock()
+	s.blog = posts
+	s.lastLoaded = time.Now()
+	s.blogMu.Unlock()
+
+	go func() {
+		ticker := time.NewTicker(5 * time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			fmt.Println("reading from disk")
+			posts, err := utils.GetPostsFromDisk()
+			if err != nil {
+				fmt.Println("loading posts from disk err", err)
+				continue
+			}
+
+			s.blogMu.Lock()
+			s.blog = posts
+			s.lastLoaded = time.Now()
+			s.blogMu.Unlock()
+		}
+	}()
 }
 
 func RequireAuth(s *Server) http.HandlerFunc {

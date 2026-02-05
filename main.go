@@ -13,10 +13,11 @@ var Users []string
 
 func main() {
 	blogSrvr := server.NewServer()
-	http.HandleFunc("/", blogSrvr.JoinServer)
+	blogSrvr.LoadPosts()
 
-	http.Handle("/home/", http.StripPrefix("/home", http.FileServer(http.Dir("./static"))))
 	http.HandleFunc("/api/posts", server.RequireAuth(blogSrvr))
+	http.Handle("/home/", http.StripPrefix("/home", http.FileServer(http.Dir("./static"))))
+	http.HandleFunc("/", blogSrvr.JoinServer)
 	fmt.Println("running server...")
 	http.ListenAndServe(":8090", nil)
 }

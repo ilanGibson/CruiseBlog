@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -39,6 +40,25 @@ func SavePost(contents types.Post) error {
 
 	_, err = f.Write(c)
 	return err
+}
+
+func GetPostsFromDisk() ([]types.Post, error) {
+	file, err := os.Open("./blog.jsonl")
+	if err != nil {
+		return nil, err
+	}
+	defer file.Close()
+
+	scanner := bufio.NewScanner(file)
+	var returnPosts []types.Post
+	for scanner.Scan() {
+		var post types.Post
+		if err := json.Unmarshal(scanner.Bytes(), &post); err != nil {
+			return nil, err
+		}
+		returnPosts = append(returnPosts, post)
+	}
+	return returnPosts, nil
 }
 
 func GetRandValue() string {
