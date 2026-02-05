@@ -126,7 +126,7 @@ func (s *Server) LoadPosts() {
 	}()
 }
 
-func RequireAuth(s *Server) http.HandlerFunc {
+func (s *Server) RequireAuth() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		username, err := req.Cookie("username")
 		if err != nil {

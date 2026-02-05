@@ -43,7 +43,8 @@ function listPosts() {
   fetch('/api/posts')
     .then(res => {
       if (!res.ok) {
-        throw new Error('network res was not ok ' + response.status);
+        // throw new Error('network res was not ok ' + response.status);
+        window.location.replace('/');
       }
       return res.json();
     })
