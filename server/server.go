@@ -51,7 +51,8 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 	var content types.Request
 	err := json.Unmarshal(body, &content)
 	if err != nil {
-		log.Fatal(err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 
 	// get userID cookie value
@@ -67,7 +68,6 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 		f, _ := json.Marshal(newPost)
 		// TODO swap response write and file write and handle err
 		w.Write(f)
-		utils.SavePost(newPost)
 	} else {
 		f, _ := json.Marshal("against cruise blog policy")
 		w.Write(f)
