@@ -3,6 +3,7 @@ package server
 import (
 	"CruiseBlog/utils"
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,18 +14,20 @@ import (
 	"time"
 
 	"CruiseBlog/types"
+	"crypto/rand"
 )
 
 var userID types.Key
 
 type Server struct {
 	blog       []types.Post
+	usernames  map[string]string
 	blogMu     sync.RWMutex
 	lastLoaded time.Time
 }
 
 func NewServer() *Server {
-	return &Server{blog: make([]types.Post, 0)}
+	return &Server{blog: make([]types.Post, 0), usernames: make(map[string]string)}
 }
 
 func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
@@ -36,10 +39,16 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 	_, err := req.Cookie("username")
 	// aka if cookie does not exist
 	if err != nil {
+		var UUID [16]byte
+		_, err := rand.Read(UUID[:])
+		if err != nil {
+			log.Fatal(err)
+		}
+		userUUID := hex.EncodeToString(UUID[:])
+		s.usernames[userUUID] = utils.GetRandValue()
 		cookie := new(http.Cookie)
-		cookie.Name = "username"
-		tempRandomVal := utils.GetRandValue()
-		cookie.Value = tempRandomVal
+		cookie.Name = "session"
+		cookie.Value = userUUID
 		http.SetCookie(w, cookie)
 		http.Redirect(w, req, "/home/about.html", http.StatusSeeOther)
 	} else {
@@ -61,7 +70,7 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// get userID cookie value
-	username := (req.Context().Value(userID)).(*http.Cookie).Value
+	username := s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value]
 
 	// TODO fix cleanpost
 	if utils.CleanPost("") {
