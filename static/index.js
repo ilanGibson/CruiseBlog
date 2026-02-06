@@ -37,7 +37,7 @@ form.addEventListener("submit", function (event) {
   .then(res => res.json())
   .then(data => {
     const today = new Date();
-    newPost(today, data.username, data.content);
+    newPost(data.date, data.username, data.content);
 
 
     input.value = "";
@@ -60,7 +60,7 @@ function listPosts() {
       if (data != null) {
         blogContainer.replaceChildren();
         for (let i = 0; i < data.length; i++) {
-          newPost(today, data[i].username, data[i].content);
+          newPost(data[i].date, data[i].username, data[i].content);
         }
       }
     })

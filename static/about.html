@@ -17,13 +17,22 @@
 
     <main>
         <section class="blog-post">
-            <h1>Thanks for choosing CruiseBlog</h1>
-            <p class="date">January 28, 2026</p>
-            <p>CruiseBlog is a blog soley dedicated to this cruise. Only folks on this boat can access. There is a $ prize for the
-          individual with the most popular blog. Please let your imagination flow.</p>
+            <p id="date"></p>
+            <h1>Thanks for visiting CruiseBlog</h1>
+        <script>
+        const homeDateLabel = document.getElementById("date");
+        const today = new Date();
+        homeDateLabel.textContent = today.toDateString();
+        </script>
+            <p>CruiseBlog is a blog dedicated exclusively to guests aboard the Holland America <em>Zuiderdam</em>.
+                Only people connected to this ship’s Wi-Fi can access it.
+                All posts are completely anonymous and local to this cruise.</p>
+            <p>This project is being built as part of my master’s degree program, so your participation is genuinely appreciated.
+                Feel free to share thoughts, questions, stories, observations, or anything else that comes to mind during the voyage.</p>
             <br>
-            <br>
-            <p>Winner will be announced via CruiseBlog on Feb 12th</p>
+            <p>Comments, concerns, and questions can all be submitted as blog posts.
+                I’ll do my best to read and respond when I can.</p>
+            <p>Thanks for being part of the experiment — and enjoy the cruise!</p>
         </section>
     </main>
 

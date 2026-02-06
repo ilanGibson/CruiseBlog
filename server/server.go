@@ -8,6 +8,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -64,7 +65,8 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 
 	// TODO fix cleanpost
 	if utils.CleanPost("") {
-		date := time.Now()
+		// date := time.Now()
+		date := strings.Split(fmt.Sprint(time.Now()), ".")[0]
 		newPost := types.Post{DateOfPost: fmt.Sprint(date), Username: fmt.Sprint(username), Content: fmt.Sprint(content.Content)}
 
 		// add post to []Post
