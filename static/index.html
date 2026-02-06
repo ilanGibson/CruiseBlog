@@ -17,14 +17,18 @@
     </header>
 
     <main>
-        <section class="blog-post">
-            <p id="date"></p>
-            <form id="blogForm">
-              <input type="text" id="blogInput" name="blogPost" placeholder="Whats on your mind..."/>
-              <button id="submitBtn">Submit</button>
-            </form>
-        </section>
-          <div id="blog-container"></div>
+      <div id="inputLengthZeroAlert">
+        <span class="closebtn" onclick="this.parentElement.style.display='none';">&times;</span>
+        Input must cannot be empty
+      </div>
+      <section class="blog-post">
+          <p id="date"></p>
+          <form id="blogForm">
+            <input type="text" id="blogInput" name="blogPost" placeholder="Whats on your mind..."/>
+            <button id="submitBtn">Submit</button>
+          </form>
+      </section>
+      <div id="blog-container"></div>
     </main>
 
     <footer>

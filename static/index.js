@@ -1,5 +1,6 @@
 const homeBtn = document.getElementById("home-btn");
 const aboutBtn = document.getElementById("about-btn");
+const postLengthZeroAlert = document.getElementById("inputLengthZeroAlert");
 const homeDateLabel = document.getElementById("date");
 const today = new Date();
 const form = document.getElementById("blogForm");
@@ -18,6 +19,13 @@ homeDateLabel.textContent = today.toDateString();
 
 form.addEventListener("submit", function (event) {
   event.preventDefault();
+
+  if (input.value.length < 1) {
+    postLengthZeroAlert.style.display='block';
+    return
+  } else if (input.value.length > 0 && postLengthZeroAlert.style.display=='block') {
+    postLengthZeroAlert.style.display='none'
+  }
 
   fetch('/api/posts', {
     method: 'POST',
