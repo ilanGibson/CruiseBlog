@@ -119,7 +119,7 @@ func (s *Server) LoadPosts() {
 	s.blogMu.Unlock()
 
 	go func() {
-		ticker := time.NewTicker(5 * time.Minute)
+		ticker := time.NewTicker(3 * time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
 			fmt.Println("reading from disk")
@@ -139,7 +139,7 @@ func (s *Server) LoadPosts() {
 
 func (s *Server) RequireAuth() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		username, err := req.Cookie("username")
+		username, err := req.Cookie("session")
 		if err != nil {
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
