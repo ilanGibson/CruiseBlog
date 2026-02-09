@@ -1,6 +1,6 @@
 const homeBtn = document.getElementById("home-btn");
 const aboutBtn = document.getElementById("about-btn");
-const postLengthZeroAlert = document.getElementById("inputLengthZeroAlert");
+const bannerAlert = document.getElementById("bannerAlert");
 const homeDateLabel = document.getElementById("date");
 const today = new Date();
 const form = document.getElementById("blogForm");
@@ -21,10 +21,12 @@ form.addEventListener("submit", function (event) {
   event.preventDefault();
 
   if (input.value.length < 1) {
-    postLengthZeroAlert.style.display='block';
+    bannerAlert.textContent = "Input cannot be empty"
+    bannerAlert.style.display='block';
     return
-  } else if (input.value.length > 0 && postLengthZeroAlert.style.display=='block') {
-    postLengthZeroAlert.style.display='none'
+  } else if (input.value.length > 0 && bannerAlert.style.display=='block') {
+    bannerAlert.textContent = ""
+    bannerAlert.style.display='none'
   }
 
   fetch('/api/posts', {
@@ -34,15 +36,22 @@ form.addEventListener("submit", function (event) {
     },
     body: JSON.stringify({content : input.value})
   })
-  .then(res => res.json())
+  .then(function(res) {
+      if (res.status === 422) {
+        input.value = "";
+        bannerAlert.textContent = "Input has been moderated";
+        bannerAlert.style.display = 'block';
+        throw new Error
+      }
+      return res.json()
+  })
   .then(data => {
     const today = new Date();
     newPost(data.date, data.username, data.content);
 
-
     input.value = "";
   })
-  .catch(err => {
+  .catch(function(err) {
     console.error("form submit err",err)
   })
 });

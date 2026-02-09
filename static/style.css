@@ -74,7 +74,7 @@ footer {
     font-size: 0.9em;
 }
 
-#inputLengthZeroAlert {
+#bannerAlert {
   display: none;
   padding: 20px;
   background-color: #f44336;

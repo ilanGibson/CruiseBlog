@@ -6,22 +6,23 @@ import (
 	"fmt"
 	"math/rand"
 	"os"
-	"slices"
 	"strings"
+	"sync"
 
 	"CruiseBlog/types"
 )
 
+var fileMutex sync.Mutex
+
 func CleanPost(content string) bool {
 	badWords := []string{"fuck", "shit", "ass", "bitch", "cunt", "whore"}
-	// maxPostLen
 
 	// againstLangPolicyFlag = check if content contains badWords
-	if slices.Contains(badWords, content) {
-		fmt.Println("here")
-		return false
+	for _, word := range badWords {
+		if strings.Contains(content, word) {
+			return false
+		}
 	}
-	// againstLengthPolicyFlag = check if content within maxPostLen
 	return true
 }
 
@@ -32,6 +33,8 @@ func SavePost(contents types.Post) error {
 	}
 	c = append(c, '\n')
 
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
 	f, err := os.OpenFile("./blog.jsonl", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -43,6 +46,8 @@ func SavePost(contents types.Post) error {
 }
 
 func GetPostsFromDisk() ([]types.Post, error) {
+	fileMutex.Lock()
+	defer fileMutex.Unlock()
 	file, err := os.Open("./blog.jsonl")
 	if err != nil {
 		return nil, err

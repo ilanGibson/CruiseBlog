@@ -22,7 +22,7 @@ var userID types.Key
 type Server struct {
 	blog       []types.Post
 	usernames  map[string]string
-	blogMu     sync.RWMutex
+	blogMu     sync.Mutex
 	lastLoaded time.Time
 }
 
@@ -36,7 +36,7 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	_, err := req.Cookie("username")
+	cookie, err := req.Cookie("session")
 	// aka if cookie does not exist
 	if err != nil {
 		var UUID [16]byte
@@ -45,13 +45,23 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 			log.Fatal(err)
 		}
 		userUUID := hex.EncodeToString(UUID[:])
+		s.blogMu.Lock()
 		s.usernames[userUUID] = utils.GetRandValue()
+		s.blogMu.Unlock()
 		cookie := new(http.Cookie)
 		cookie.Name = "session"
 		cookie.Value = userUUID
 		http.SetCookie(w, cookie)
 		http.Redirect(w, req, "/home/about.html", http.StatusSeeOther)
 	} else {
+		// aka if cookie is not mapped to username in server
+		// happens when user has correct cookie and server is taken down then restarted
+		// user still has cookie in browser to pass initial check but their cookie
+		// is not mapped to username because username map[string]string is not persistant
+		// between server restarts
+		if _, ok := s.usernames[cookie.Value]; !ok {
+			s.usernames[cookie.Value] = utils.GetRandValue()
+		}
 		s.LoadPosts()
 		http.Redirect(w, req, "/home", http.StatusSeeOther)
 	}
@@ -69,17 +79,22 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
+	s.blogMu.Lock()
 	// get userID cookie value
 	username := s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value]
+	s.blogMu.Unlock()
 
 	// TODO fix cleanpost
-	if utils.CleanPost("") {
-		// date := time.Now()
+	if utils.CleanPost(content.Content) {
+
 		date := strings.Split(fmt.Sprint(time.Now()), ".")[0]
 		newPost := types.Post{DateOfPost: fmt.Sprint(date), Username: fmt.Sprint(username), Content: fmt.Sprint(content.Content)}
 
+		s.blogMu.Lock()
 		// add post to []Post
 		s.blog = append(s.blog, newPost)
+		s.blogMu.Unlock()
+
 		f, _ := json.Marshal(newPost)
 		err := utils.SavePost(newPost)
 
@@ -89,13 +104,17 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 		}
 		w.Write(f)
 	} else {
-		f, _ := json.Marshal("against cruise blog policy")
-		w.Write(f)
+		w.WriteHeader(422)
+		// http.Error(w, "Moderation", http.StatusUnprocessableEntity)
+		// f, _ := json.Marshal("against cruise blog policy")
+		// w.Write(f)
 	}
 }
 
 func (s *Server) GetPosts(w http.ResponseWriter, _ *http.Request) {
+	s.blogMu.Lock()
 	f, err := json.Marshal(s.blog)
+	s.blogMu.Unlock()
 	if err != nil {
 		log.Fatal("get post err", err)
 	}
