@@ -96,3 +96,8 @@ footer {
 .closebtn:hover {
   color: black;
 }
+
+#home-btn {
+  color: red;
+  /* color: #0066cc; */
+}
