@@ -59,9 +59,11 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 		// user still has cookie in browser to pass initial check but their cookie
 		// is not mapped to username because username map[string]string is not persistant
 		// between server restarts
+		s.blogMu.Lock()
 		if _, ok := s.usernames[cookie.Value]; !ok {
 			s.usernames[cookie.Value] = utils.GetRandValue()
 		}
+		s.blogMu.Unlock()
 		s.LoadPosts()
 		http.Redirect(w, req, "/home", http.StatusSeeOther)
 	}
