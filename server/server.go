@@ -70,6 +70,12 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
+	s.blogMu.Lock()
+	if _, ok := s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value]; !ok {
+		s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value] = utils.GetRandValue()
+	}
+	s.blogMu.Unlock()
+
 	// get post content
 	body, _ := (io.ReadAll(req.Body))
 	defer req.Body.Close()
@@ -113,8 +119,12 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *Server) GetPosts(w http.ResponseWriter, _ *http.Request) {
+func (s *Server) GetPosts(w http.ResponseWriter, req *http.Request) {
 	s.blogMu.Lock()
+	if _, ok := s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value]; !ok {
+		s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value] = utils.GetRandValue()
+	}
+
 	f, err := json.Marshal(s.blog)
 	s.blogMu.Unlock()
 	if err != nil {
@@ -166,12 +176,13 @@ func (s *Server) RequireAuth() http.HandlerFunc {
 			return
 		}
 
+		ctx := context.WithValue(req.Context(), userID, username)
 		switch req.Method {
 		case "POST":
-			ctx := context.WithValue(req.Context(), userID, username)
+			// ctx := context.WithValue(req.Context(), userID, username)
 			s.AddPost(w, req.WithContext(ctx))
 		case "GET":
-			s.GetPosts(w, req)
+			s.GetPosts(w, req.WithContext(ctx))
 		}
 	}
 }

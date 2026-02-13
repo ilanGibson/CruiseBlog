@@ -20,6 +20,7 @@ homeDateLabel.textContent = today.toDateString();
 form.addEventListener("submit", function (event) {
   event.preventDefault();
 
+  // input length check
   if (input.value.length < 1) {
     bannerAlert.textContent = "Input cannot be empty"
     bannerAlert.style.display='block';
