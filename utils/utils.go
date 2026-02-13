@@ -2,6 +2,8 @@ package utils
 
 import (
 	"bufio"
+	"bytes"
+	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math/rand"
@@ -12,7 +14,8 @@ import (
 	"CruiseBlog/types"
 )
 
-var fileMutex sync.Mutex
+var usernameFileMutex sync.Mutex
+var ipFileMutex sync.Mutex
 
 func CleanPost(content string) bool {
 	badWords := []string{"fuck", "shit", "ass", "bitch", "cunt", "whore"}
@@ -33,8 +36,8 @@ func SavePost(contents types.Post) error {
 	}
 	c = append(c, '\n')
 
-	fileMutex.Lock()
-	defer fileMutex.Unlock()
+	usernameFileMutex.Lock()
+	defer usernameFileMutex.Unlock()
 	f, err := os.OpenFile("./blog.jsonl", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		return err
@@ -46,8 +49,8 @@ func SavePost(contents types.Post) error {
 }
 
 func GetPostsFromDisk() ([]types.Post, error) {
-	fileMutex.Lock()
-	defer fileMutex.Unlock()
+	usernameFileMutex.Lock()
+	defer usernameFileMutex.Unlock()
 	file, err := os.Open("./blog.jsonl")
 	if err != nil {
 		return nil, err
@@ -77,4 +80,56 @@ func GetRandValue() string {
 	}
 
 	return sb.String()
+}
+
+func CheckForUniqueIp(ip string) bool {
+	ipInQuestion := hashIp(ip)
+
+	ipHashes := getIpHashes()
+	for _, ip := range ipHashes {
+		if bytes.Equal(ip, ipInQuestion) {
+			return true
+		}
+	}
+	writeIpHash([]byte(ip))
+	return false
+
+}
+
+func hashIp(ip string) []byte {
+	hash := sha256.New()
+	hash.Write([]byte(ip))
+
+	ipHash := hash.Sum(nil)
+	return ipHash
+}
+
+func getIpHashes() [][]byte {
+	ipFileMutex.Lock()
+	defer ipFileMutex.Unlock()
+	file, err := os.Open("./op.jsonl")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer file.Close()
+
+	ipHashes := make([][]byte, 0)
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		ipHashes = append(ipHashes, scanner.Bytes())
+	}
+
+	return ipHashes
+}
+
+func writeIpHash(ipHash []byte) {
+	ipFileMutex.Lock()
+	defer ipFileMutex.Unlock()
+	file, err := os.Open("./ip.jsonl")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer file.Close()
+
+	file.Write(ipHash)
 }

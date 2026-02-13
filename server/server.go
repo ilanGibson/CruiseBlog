@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"CruiseBlog/types"
@@ -20,10 +21,11 @@ import (
 var userID types.Key
 
 type Server struct {
-	blog       []types.Post
-	usernames  map[string]string
-	blogMu     sync.Mutex
-	lastLoaded time.Time
+	blog        []types.Post
+	usernames   map[string]string
+	uniqueUsers atomic.Uint64
+	blogMu      sync.Mutex
+	lastLoaded  time.Time
 }
 
 func NewServer() *Server {
@@ -39,6 +41,10 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 	cookie, err := req.Cookie("session")
 	// aka if cookie does not exist
 	if err != nil {
+		if temp := utils.CheckForUniqueIp(strings.Split(req.RemoteAddr, ":")[0]); temp != false {
+			s.uniqueUsers.Add(1)
+		}
+
 		var UUID [16]byte
 		_, err := rand.Read(UUID[:])
 		if err != nil {
