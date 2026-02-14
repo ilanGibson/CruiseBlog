@@ -82,17 +82,17 @@ func GetRandValue() string {
 	return sb.String()
 }
 
-func CheckForUniqueIp(ip string) bool {
+func IpIsUnique(ip string) bool {
 	ipInQuestion := hashIp(ip)
 
 	ipHashes := getIpHashes()
 	for _, ip := range ipHashes {
 		if bytes.Equal(ip, ipInQuestion) {
-			return true
+			return false
 		}
 	}
 	writeIpHash([]byte(ip))
-	return false
+	return true
 
 }
 
@@ -107,7 +107,7 @@ func hashIp(ip string) []byte {
 func getIpHashes() [][]byte {
 	ipFileMutex.Lock()
 	defer ipFileMutex.Unlock()
-	file, err := os.Open("./op.jsonl")
+	file, err := os.Open("./ip.jsonl")
 	if err != nil {
 		fmt.Println(err)
 	}
@@ -125,11 +125,11 @@ func getIpHashes() [][]byte {
 func writeIpHash(ipHash []byte) {
 	ipFileMutex.Lock()
 	defer ipFileMutex.Unlock()
-	file, err := os.Open("./ip.jsonl")
+	file, err := os.OpenFile("./ip.jsonl", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Println(err)
 	}
-	defer file.Close()
 
 	file.Write(ipHash)
+	defer file.Close()
 }

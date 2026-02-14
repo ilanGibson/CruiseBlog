@@ -41,7 +41,9 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 	cookie, err := req.Cookie("session")
 	// aka if cookie does not exist
 	if err != nil {
-		if temp := utils.CheckForUniqueIp(strings.Split(req.RemoteAddr, ":")[0]); temp != false {
+		// IpIsUnique returns true is ip in unique
+		if uniqueIP := utils.IpIsUnique(strings.Split(req.RemoteAddr, ":")[0]); uniqueIP == true {
+			fmt.Println("adding user")
 			s.uniqueUsers.Add(1)
 		}
 
@@ -98,7 +100,6 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 	username := s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value]
 	s.blogMu.Unlock()
 
-	// TODO fix cleanpost
 	if utils.CleanPost(content.Content) {
 
 		date := strings.Split(fmt.Sprint(time.Now()), ".")[0]
@@ -119,9 +120,6 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 		w.Write(f)
 	} else {
 		w.WriteHeader(422)
-		// http.Error(w, "Moderation", http.StatusUnprocessableEntity)
-		// f, _ := json.Marshal("against cruise blog policy")
-		// w.Write(f)
 	}
 }
 
@@ -172,6 +170,17 @@ func (s *Server) LoadPosts() {
 			s.blogMu.Unlock()
 		}
 	}()
+}
+
+func (s *Server) ServerInfo(w http.ResponseWriter, req *http.Request) {
+	ServerInfo := types.ServerInfo{UniqueUsers: s.uniqueUsers.Load(), LastServerRestart: s.lastLoaded, ServerAge: time.Duration(time.Since(s.lastLoaded).Seconds())}
+
+	f, err := json.Marshal(ServerInfo)
+	if err != nil {
+		fmt.Println(err)
+	}
+
+	w.Write(f)
 }
 
 func (s *Server) RequireAuth() http.HandlerFunc {
