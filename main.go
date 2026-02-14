@@ -1,7 +1,7 @@
 package main
 
 import (
-	"fmt"
+	"log"
 	"net/http"
 	// "reflect"
 
@@ -20,6 +20,6 @@ func main() {
 	http.HandleFunc("/", blogSrvr.JoinServer)
 	http.Handle("/home/", http.StripPrefix("/home", http.FileServer(http.Dir("./static"))))
 
-	fmt.Println("running server...")
+	log.Println("running server...")
 	http.ListenAndServe(":8090", nil)
 }

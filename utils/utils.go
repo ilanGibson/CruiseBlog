@@ -4,7 +4,7 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/json"
-	"fmt"
+	"log"
 	"math/rand"
 	"os"
 	"slices"
@@ -29,23 +29,25 @@ func CleanPost(content string) bool {
 	return true
 }
 
-func WritePost(contents types.Post) error {
-	c, err := json.Marshal(contents)
-	if err != nil {
-		fmt.Println("cant marshal contents", err)
-	}
-	c = append(c, '\n')
+func WritePost(post []byte) error {
+	post = append(post, '\n')
 
 	usernameFileMutex.Lock()
 	defer usernameFileMutex.Unlock()
-	f, err := os.OpenFile("./blog.jsonl", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+
+	file, err := os.OpenFile("./blog.jsonl", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
+		log.Println("open file blog.jsonl failed: %w", err)
 		return err
 	}
-	defer f.Close()
+	defer file.Close()
 
-	_, err = f.Write(c)
-	return err
+	_, err = file.Write(post)
+	if err != nil {
+		log.Println("write new post to blog.jsonl for write failed: %w", err)
+		return err
+	}
+	return nil
 }
 
 func GetPostsFromDisk() ([]types.Post, error) {
@@ -54,6 +56,7 @@ func GetPostsFromDisk() ([]types.Post, error) {
 
 	file, err := os.Open("./blog.jsonl")
 	if err != nil {
+		log.Println("open file blog.jsonl for read failed: %w", err)
 		return nil, err
 	}
 	defer file.Close()
@@ -63,6 +66,7 @@ func GetPostsFromDisk() ([]types.Post, error) {
 	for scanner.Scan() {
 		var post types.Post
 		if err := json.Unmarshal(scanner.Bytes(), &post); err != nil {
+			log.Println("unmarshal user post into content failed: %w", err)
 			return nil, err
 		}
 		returnPosts = append(returnPosts, post)

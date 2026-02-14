@@ -4,7 +4,7 @@ import "time"
 
 type Key string
 
-type Request struct {
+type ClientRequest struct {
 	Content string `json:"content"`
 }
 

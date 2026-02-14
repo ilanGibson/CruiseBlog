@@ -52,9 +52,13 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 
 		var UUID [16]byte
 		_, err := rand.Read(UUID[:])
+		// default err handling for handler
 		if err != nil {
-			log.Fatal(err)
+			log.Println("uuid generation failed: %w", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
 		}
+
 		userUUID := hex.EncodeToString(UUID[:])
 		s.blogMu.Lock()
 		s.usernames[userUUID] = utils.GetRandValue()
@@ -91,9 +95,9 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 	body, _ := (io.ReadAll(req.Body))
 	defer req.Body.Close()
 
-	var content types.Request
-	err := json.Unmarshal(body, &content)
-	if err != nil {
+	var content types.ClientRequest
+	if err := json.Unmarshal(body, &content); err != nil {
+		log.Println("unmarshal user post into content failed: %w", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -113,14 +117,26 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 		s.blog = append(s.blog, newPost)
 		s.blogMu.Unlock()
 
-		f, _ := json.Marshal(newPost)
-		err := utils.WritePost(newPost)
-
+		f, err := json.Marshal(newPost)
 		if err != nil {
+			log.Println("marshal newPost failed: %w", err)
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		w.Write(f)
+
+		if err = utils.WritePost(f); err != nil {
+			log.Println("WritePost(newPost) failed: %w", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
+		_, err = w.Write(f)
+		if err != nil {
+			log.Println("write newPost to response failed: %w", err)
+			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+			return
+		}
+
 	} else {
 		w.WriteHeader(422)
 	}
@@ -134,21 +150,37 @@ func (s *Server) GetPosts(w http.ResponseWriter, req *http.Request) {
 
 	f, err := json.Marshal(s.blog)
 	s.blogMu.Unlock()
+
 	if err != nil {
-		log.Fatal("get post err", err)
+		log.Println("marshal s.blog failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
+
 	_, err = w.Write(f)
 	if err != nil {
-		fmt.Println("get posts err", err)
+		log.Println("write s.blog to response failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 }
 
 func (s *Server) LoadPosts() {
-	fmt.Println("reading from disk")
-	posts, err := utils.GetPostsFromDisk()
-	if err != nil {
-		fmt.Println("loading posts from disk err", err)
-		return
+	log.Println("reading from disk")
+	var posts []types.Post
+	var err error
+
+	for i := range 3 {
+		posts, err = utils.GetPostsFromDisk()
+		if err != nil {
+			log.Printf("load posts from disk failed %v", i)
+			if i == 2 {
+				log.Fatal("load posts from disk to memory failed 3 times")
+			}
+			time.Sleep(1 * time.Second)
+			continue
+		}
+		break
 	}
 
 	s.blogMu.Lock()
@@ -159,10 +191,10 @@ func (s *Server) LoadPosts() {
 		ticker := time.NewTicker(3 * time.Minute)
 		defer ticker.Stop()
 		for range ticker.C {
-			fmt.Println("reading from disk")
+			log.Println("reading from disk")
 			posts, err := utils.GetPostsFromDisk()
 			if err != nil {
-				fmt.Println("loading posts from disk err", err)
+				log.Println("load posts from disk failed: %w", err)
 				continue
 			}
 
@@ -178,16 +210,24 @@ func (s *Server) ServerInfo(w http.ResponseWriter, req *http.Request) {
 
 	f, err := json.Marshal(ServerInfo)
 	if err != nil {
-		fmt.Println(err)
+		log.Println("marshal ServerInfo failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
 
-	w.Write(f)
+	_, err = w.Write(f)
+	if err != nil {
+		log.Println("write newPost to response failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
 }
 
 func (s *Server) RequireAuth() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		username, err := req.Cookie("session")
 		if err != nil {
+			log.Println("get user auth cookie failed: %w", err)
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
