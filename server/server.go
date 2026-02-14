@@ -111,7 +111,7 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 		s.blogMu.Unlock()
 
 		f, _ := json.Marshal(newPost)
-		err := utils.SavePost(newPost)
+		err := utils.WritePost(newPost)
 
 		if err != nil {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
@@ -192,7 +192,6 @@ func (s *Server) RequireAuth() http.HandlerFunc {
 		ctx := context.WithValue(req.Context(), userID, username)
 		switch req.Method {
 		case "POST":
-			// ctx := context.WithValue(req.Context(), userID, username)
 			s.AddPost(w, req.WithContext(ctx))
 		case "GET":
 			s.GetPosts(w, req.WithContext(ctx))

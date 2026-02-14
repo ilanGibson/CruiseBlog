@@ -29,7 +29,7 @@ func CleanPost(content string) bool {
 	return true
 }
 
-func SavePost(contents types.Post) error {
+func WritePost(contents types.Post) error {
 	c, err := json.Marshal(contents)
 	if err != nil {
 		fmt.Println("cant marshal contents", err)
@@ -51,6 +51,7 @@ func SavePost(contents types.Post) error {
 func GetPostsFromDisk() ([]types.Post, error) {
 	usernameFileMutex.Lock()
 	defer usernameFileMutex.Unlock()
+
 	file, err := os.Open("./blog.jsonl")
 	if err != nil {
 		return nil, err
@@ -107,6 +108,7 @@ func hashIp(ip string) []byte {
 func getIpHashes() [][]byte {
 	ipFileMutex.Lock()
 	defer ipFileMutex.Unlock()
+
 	file, err := os.Open("./ip.jsonl")
 	if err != nil {
 		fmt.Println(err)
@@ -125,6 +127,7 @@ func getIpHashes() [][]byte {
 func writeIpHash(ipHash []byte) {
 	ipFileMutex.Lock()
 	defer ipFileMutex.Unlock()
+
 	file, err := os.OpenFile("./ip.jsonl", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
 	if err != nil {
 		fmt.Println(err)
