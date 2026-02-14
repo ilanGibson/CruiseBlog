@@ -46,7 +46,6 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 		// IpIsUnique returns true is ip in unique
 		ip := strings.Split(req.RemoteAddr, ":")[0]
 		if uniqueIP := utils.IpIsUnique(ip, &s.ipHashes); uniqueIP == true {
-			fmt.Println("adding user")
 			s.uniqueUsers.Add(1)
 			utils.WriteIpHash(ip, &s.ipHashes)
 		}
@@ -107,7 +106,7 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 	if utils.CleanPost(content.Content) {
 
 		date := strings.Split(fmt.Sprint(time.Now()), ".")[0]
-		newPost := types.Post{DateOfPost: fmt.Sprint(date), Username: fmt.Sprint(username), Content: fmt.Sprint(content.Content)}
+		newPost := types.Post{DateOfPost: date, Username: username, Content: content.Content}
 
 		s.blogMu.Lock()
 		// add post to []Post
