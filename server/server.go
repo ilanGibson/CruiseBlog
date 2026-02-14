@@ -29,7 +29,7 @@ type Server struct {
 }
 
 func NewServer() *Server {
-	return &Server{blog: make([]types.Post, 0), usernames: make(map[string]string)}
+	return &Server{blog: make([]types.Post, 0), usernames: make(map[string]string), lastLoaded: time.Now()}
 }
 
 func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
@@ -150,7 +150,6 @@ func (s *Server) LoadPosts() {
 
 	s.blogMu.Lock()
 	s.blog = posts
-	s.lastLoaded = time.Now()
 	s.blogMu.Unlock()
 
 	go func() {
@@ -166,7 +165,6 @@ func (s *Server) LoadPosts() {
 
 			s.blogMu.Lock()
 			s.blog = posts
-			s.lastLoaded = time.Now()
 			s.blogMu.Unlock()
 		}
 	}()
