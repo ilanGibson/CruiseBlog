@@ -1,7 +1,6 @@
 package server
 
 import (
-	"CruiseBlog/utils"
 	"context"
 	"encoding/hex"
 	"encoding/json"
@@ -15,6 +14,7 @@ import (
 	"time"
 
 	"CruiseBlog/types"
+	"CruiseBlog/utils"
 	"crypto/rand"
 )
 
@@ -26,10 +26,12 @@ type Server struct {
 	uniqueUsers atomic.Uint64
 	blogMu      sync.Mutex
 	lastLoaded  time.Time
+	ipHashes    types.IpSlice
 }
 
 func NewServer() *Server {
-	return &Server{blog: make([]types.Post, 0), usernames: make(map[string]string), lastLoaded: time.Now()}
+	hashes := utils.NewIpSlice()
+	return &Server{blog: make([]types.Post, 0), usernames: make(map[string]string), lastLoaded: time.Now(), ipHashes: *hashes}
 }
 
 func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
@@ -42,9 +44,11 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 	// aka if cookie does not exist
 	if err != nil {
 		// IpIsUnique returns true is ip in unique
-		if uniqueIP := utils.IpIsUnique(strings.Split(req.RemoteAddr, ":")[0]); uniqueIP == true {
+		ip := strings.Split(req.RemoteAddr, ":")[0]
+		if uniqueIP := utils.IpIsUnique(ip, &s.ipHashes); uniqueIP == true {
 			fmt.Println("adding user")
 			s.uniqueUsers.Add(1)
+			utils.WriteIpHash(ip, &s.ipHashes)
 		}
 
 		var UUID [16]byte

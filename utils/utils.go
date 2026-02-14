@@ -2,12 +2,12 @@ package utils
 
 import (
 	"bufio"
-	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"math/rand"
 	"os"
+	"slices"
 	"strings"
 	"sync"
 
@@ -15,7 +15,7 @@ import (
 )
 
 var usernameFileMutex sync.Mutex
-var ipFileMutex sync.Mutex
+var ipMutex sync.Mutex
 
 func CleanPost(content string) bool {
 	badWords := []string{"fuck", "shit", "ass", "bitch", "cunt", "whore"}
@@ -83,56 +83,31 @@ func GetRandValue() string {
 	return sb.String()
 }
 
-func IpIsUnique(ip string) bool {
-	ipInQuestion := hashIp(ip)
-
-	ipHashes := getIpHashes()
-	for _, ip := range ipHashes {
-		if bytes.Equal(ip, ipInQuestion) {
-			return false
-		}
-	}
-	writeIpHash([]byte(ip))
-	return true
-
+func NewIpSlice() *types.IpSlice {
+	return &types.IpSlice{IpHashes: make([]string, 0)}
 }
 
-func hashIp(ip string) []byte {
+func IpIsUnique(ip string, serverHashes *types.IpSlice) bool {
+	ipInQuestion := hashIp(ip)
+
+	if slices.Contains(serverHashes.IpHashes, ipInQuestion) {
+		return false
+	}
+
+	return true
+}
+
+func hashIp(ip string) string {
 	hash := sha256.New()
 	hash.Write([]byte(ip))
 
 	ipHash := hash.Sum(nil)
-	return ipHash
+	return string(ipHash)
 }
 
-func getIpHashes() [][]byte {
-	ipFileMutex.Lock()
-	defer ipFileMutex.Unlock()
+func WriteIpHash(ip string, serverHashes *types.IpSlice) {
+	ipMutex.Lock()
+	defer ipMutex.Unlock()
 
-	file, err := os.Open("./ip.jsonl")
-	if err != nil {
-		fmt.Println(err)
-	}
-	defer file.Close()
-
-	ipHashes := make([][]byte, 0)
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		ipHashes = append(ipHashes, scanner.Bytes())
-	}
-
-	return ipHashes
-}
-
-func writeIpHash(ipHash []byte) {
-	ipFileMutex.Lock()
-	defer ipFileMutex.Unlock()
-
-	file, err := os.OpenFile("./ip.jsonl", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-	if err != nil {
-		fmt.Println(err)
-	}
-
-	file.Write(ipHash)
-	defer file.Close()
+	serverHashes.IpHashes = append(serverHashes.IpHashes, hashIp(ip))
 }

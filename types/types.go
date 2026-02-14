@@ -19,3 +19,7 @@ type ServerInfo struct {
 	LastServerRestart time.Time     `json:"last_server_restart"`
 	ServerAge         time.Duration `json:"server_age(seconds)"`
 }
+
+type IpSlice struct {
+	IpHashes []string
+}
