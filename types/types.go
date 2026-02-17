@@ -4,11 +4,19 @@ import "time"
 
 type Key string
 
+type Admin struct {
+	Key             string
+	KeyExpireLength time.Duration
+	IsKeyExpired    bool
+	HasKeyBeenUsed  bool
+}
+
 type ClientRequest struct {
 	Content string `json:"content"`
 }
 
 type Post struct {
+	PostId     string `json:"post_id"`
 	DateOfPost string `json:"date"`
 	Username   string `json:"username"`
 	Content    string `json:"content"`

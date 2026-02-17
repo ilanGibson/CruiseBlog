@@ -1,25 +1,47 @@
 package main
 
 import (
+	"flag"
+	"fmt"
 	"log"
 	"net/http"
-	// "reflect"
+	"time"
 
 	"CruiseBlog/server"
+	"CruiseBlog/utils"
 )
 
 // username is given to user via cookie
 var Users []string
 
 func main() {
+	adminLink := flag.Bool("a", false, "flag to print link for admin cookie")
+	port := flag.String("p", ":8090", "server port")
+	flag.Parse()
+
 	blogSrvr := server.NewServer()
 	blogSrvr.LoadPosts()
 
-	http.HandleFunc("/api/posts", blogSrvr.RequireAuth())
+	if *adminLink {
+		blogSrvr.Admin.Key = utils.GetRandValue()
+		blogSrvr.Admin.KeyExpireLength = 15 * time.Minute
+
+		go func() {
+			<-time.After(blogSrvr.Admin.KeyExpireLength)
+			blogSrvr.Admin.IsKeyExpired = true
+		}()
+
+		path := fmt.Sprintf("/admin/%v", blogSrvr.Admin.Key)
+		http.HandleFunc(path, blogSrvr.SetAdminCookie)
+		http.HandleFunc("/admin/", blogSrvr.RequireAuthAdmin(http.StripPrefix("/admin", http.FileServer(http.Dir("./static/admin/")))))
+		fmt.Println(path)
+	}
+
+	http.HandleFunc("/api/posts", blogSrvr.RequireAuthHome())
 	http.HandleFunc("/server", blogSrvr.ServerInfo)
 	http.HandleFunc("/", blogSrvr.JoinServer)
-	http.Handle("/home/", http.StripPrefix("/home", http.FileServer(http.Dir("./static"))))
+	http.Handle("/home/", http.StripPrefix("/home", http.FileServer(http.Dir("./static/home/"))))
 
-	log.Println("running server...")
-	http.ListenAndServe(":8090", nil)
+	log.Printf("running server... %v", *port)
+	http.ListenAndServe(*port, nil)
 }

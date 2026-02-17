@@ -21,17 +21,18 @@ import (
 var userID types.Key
 
 type Server struct {
-	blog        []types.Post
-	usernames   map[string]string
-	uniqueUsers atomic.Uint64
-	blogMu      sync.Mutex
-	lastLoaded  time.Time
-	ipHashes    types.IpSlice
+	blog              []types.Post
+	usernames         map[string]string
+	uniqueUsers       atomic.Uint64
+	blogMu            sync.Mutex
+	lastServerRestart time.Time
+	ipHashes          types.IpSlice
+	Admin             types.Admin
 }
 
 func NewServer() *Server {
 	hashes := utils.NewIpSlice()
-	return &Server{blog: make([]types.Post, 0), usernames: make(map[string]string), lastLoaded: time.Now(), ipHashes: *hashes}
+	return &Server{blog: make([]types.Post, 0), usernames: make(map[string]string), lastServerRestart: time.Now(), ipHashes: *hashes}
 }
 
 func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
@@ -205,8 +206,30 @@ func (s *Server) LoadPosts() {
 	}()
 }
 
+func (s *Server) SetAdminCookie(w http.ResponseWriter, req *http.Request) {
+	if s.Admin.HasKeyBeenUsed || s.Admin.IsKeyExpired {
+		http.Redirect(w, req, "/", http.StatusUnauthorized)
+	}
+
+	var randCookieVal [16]byte
+	_, err := rand.Read(randCookieVal[:])
+	if err != nil {
+		log.Println("adminCookie generation failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	adminCookie := hex.EncodeToString(randCookieVal[:])
+	cookie := new(http.Cookie)
+	cookie.Name = "admin_session"
+	cookie.Value = adminCookie
+	s.Admin.HasKeyBeenUsed = true
+	http.SetCookie(w, cookie)
+	http.Redirect(w, req, "/", http.StatusSeeOther)
+}
+
 func (s *Server) ServerInfo(w http.ResponseWriter, req *http.Request) {
-	ServerInfo := types.ServerInfo{UniqueUsers: s.uniqueUsers.Load(), LastServerRestart: s.lastLoaded, ServerAge: time.Duration(time.Since(s.lastLoaded).Seconds())}
+	ServerInfo := types.ServerInfo{UniqueUsers: s.uniqueUsers.Load(), LastServerRestart: s.lastServerRestart, ServerAge: time.Duration(time.Since(s.lastServerRestart).Seconds())}
 
 	f, err := json.Marshal(ServerInfo)
 	if err != nil {
@@ -223,7 +246,20 @@ func (s *Server) ServerInfo(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *Server) RequireAuth() http.HandlerFunc {
+func (s *Server) RequireAuthAdmin(next http.Handler) http.HandlerFunc {
+	return func(w http.ResponseWriter, req *http.Request) {
+		_, err := req.Cookie("admin_session")
+		if err != nil {
+			log.Println("get admin_session cookie failed: %w", err)
+			http.Redirect(w, req, "/", http.StatusUnauthorized)
+			return
+		}
+
+		fmt.Println("err nil")
+		next.ServeHTTP(w, req)
+	}
+}
+func (s *Server) RequireAuthHome() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		username, err := req.Cookie("session")
 		if err != nil {
