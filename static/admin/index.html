@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Blog Admin Panel</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header>
+    <h1>CruiseBlog Admin Panel</h1>
+</header>
+
+<div class="container">
+
+    <!-- Dashboard -->
+    <div class="dashboard">
+        <div class="total-posts-container">
+            <h2 id="totalPosts">0</h2>
+            <p>Total Posts</p>
+        </div>
+        <div class="total-users-container">
+            <h2 id="totalUsrs">0</h2>
+            <p>Total Users</p>
+        </div>
+    </div>
+
+    <!-- Create / Edit Post -->
+    <div class="form-section">
+        <h2>Edit Post</h2>
+        <input type="text" id="title" placeholder="Post Title">
+        <textarea id="content" rows="5" placeholder="Post Content"></textarea>
+        <button class="btn-primary" onclick="savePost()">Save Post</button>
+    </div>
+
+    <!-- Posts List -->
+    <div class="post-list">
+        <h2>All Posts</h2>
+        <div id="postsContainer"></div>
+    </div>
+
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>

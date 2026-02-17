@@ -8,10 +8,12 @@ const input = document.getElementById("blogInput");
 const blogContainer = document.getElementById("blog-container");
 
 if (window.location.pathname === "/home/") {
+  "hitting 1"
   listPosts();
 }
 
 homeBtn.addEventListener("click", function (event) {
+  "hitting 2"
   listPosts();
 });
 
