@@ -25,6 +25,7 @@ func main() {
 	if *adminLink {
 		blogSrvr.Admin.Key = utils.GetRandValue()
 		blogSrvr.Admin.KeyExpireLength = 15 * time.Minute
+		blogSrvr.Admin.AdminChan = make(chan int, 1)
 
 		go func() {
 			<-time.After(blogSrvr.Admin.KeyExpireLength)
@@ -33,6 +34,7 @@ func main() {
 
 		path := fmt.Sprintf("/admin/%v", blogSrvr.Admin.Key)
 		http.HandleFunc(path, blogSrvr.SetAdminCookie)
+		http.HandleFunc("/admin/sseEvents", blogSrvr.RequireAuthAdmin(http.HandlerFunc(blogSrvr.SseHandler)))
 		http.HandleFunc("/admin/", blogSrvr.RequireAuthAdmin(http.StripPrefix("/admin", http.FileServer(http.Dir("./static/admin/")))))
 		fmt.Println(path)
 	}
