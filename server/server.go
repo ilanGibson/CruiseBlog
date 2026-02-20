@@ -48,6 +48,7 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 		ip := strings.Split(req.RemoteAddr, ":")[0]
 		if uniqueIP := utils.IpIsUnique(ip, &s.ipHashes); uniqueIP == true {
 			s.uniqueUsers.Add(1)
+			s.Admin.AdminChan <- 1
 			utils.WriteIpHash(ip, &s.ipHashes)
 		}
 
@@ -137,6 +138,7 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
+		s.Admin.AdminChan <- 1
 
 	} else {
 		w.WriteHeader(422)
@@ -243,6 +245,56 @@ func (s *Server) ServerInfo(w http.ResponseWriter, req *http.Request) {
 		log.Println("write newPost to response failed: %w", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
+	}
+}
+
+func (s *Server) SseHandler(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+
+	// create a channel for client disconnection
+	clientGone := req.Context().Done()
+
+	rc := http.NewResponseController(w)
+
+	for {
+		select {
+		case <-clientGone:
+			fmt.Println("client disconnected")
+			// close(clientChan)
+			return
+
+		case <-s.Admin.AdminChan:
+			s.blogMu.Lock()
+			msg := types.SseMsg{
+				TotalUsers: int(s.uniqueUsers.Load()),
+				TotalPosts: len(s.blog),
+			}
+			msgBytes, err := json.Marshal(msg)
+			s.blogMu.Unlock()
+
+			if err != nil {
+				log.Println("marshal total users/posts failed: %w", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			ssePayload := fmt.Sprintf("data: %s\n\n", msgBytes)
+			_, err = w.Write([]byte(ssePayload))
+			if err != nil {
+				log.Println("write total users/posts failed: %w", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+
+			err = rc.Flush()
+			if err != nil {
+				log.Println("flush total users/posts failed: %w", err)
+				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+				return
+			}
+		}
 	}
 }
 

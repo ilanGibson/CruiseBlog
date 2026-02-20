@@ -9,6 +9,12 @@ type Admin struct {
 	KeyExpireLength time.Duration
 	IsKeyExpired    bool
 	HasKeyBeenUsed  bool
+	AdminChan       chan int
+}
+
+type SseMsg struct {
+	TotalUsers int `json:"total_users"`
+	TotalPosts int `json:"total_posts"`
 }
 
 type ClientRequest struct {
