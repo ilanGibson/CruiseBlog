@@ -1,5 +1,3 @@
-const homeBtn = document.getElementById("home-btn");
-const aboutBtn = document.getElementById("about-btn");
 const bannerAlert = document.getElementById("bannerAlert");
 const homeDateLabel = document.getElementById("date");
 const today = new Date();
@@ -11,11 +9,6 @@ if (window.location.pathname === "/home/") {
   "hitting 1"
   listPosts();
 }
-
-homeBtn.addEventListener("click", function (event) {
-  "hitting 2"
-  listPosts();
-});
 
 homeDateLabel.textContent = today.toDateString();
 
