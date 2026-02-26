@@ -32,19 +32,18 @@ form.addEventListener("submit", function (event) {
     },
     body: JSON.stringify({content : input.value})
   })
-  .then(function(res) {
+  .then(res => {
       if (res.status === 422) {
         input.value = "";
         bannerAlert.textContent = "Input has been moderated";
         bannerAlert.style.display = 'block';
         throw new Error
       }
-      return res.json()
+      return res.json();
   })
   .then(data => {
     const today = new Date();
     newPost(data.date, data.username, data.content);
-
     input.value = "";
   })
   .catch(function(err) {
@@ -56,7 +55,6 @@ function listPosts() {
   fetch('/api/posts')
     .then(res => {
       if (!res.ok) {
-        // throw new Error('network res was not ok ' + response.status);
         window.location.replace('/');
       }
       return res.json();

@@ -3,6 +3,7 @@ const totalPosts = document.getElementById("totalPosts");
 const contentContainer = document.getElementById("content");
 const postContainer = document.getElementById("postContainer");
 const editPostBtn = document.getElementById("editPost-btn");
+const deletePostBtn = document.getElementById("deletePost-btn");
 
 let activeSection;
 let activeSectionUsername;
@@ -85,6 +86,7 @@ postContainer.addEventListener("click", (e) => {
 })
 
 editPostBtn.addEventListener("click", (e) => {
+  if (!activeSection) return;
   e.preventDefault();
   newContentForUpdate = contentContainer.value;
 
@@ -103,16 +105,38 @@ editPostBtn.addEventListener("click", (e) => {
       if (!res.ok) {
         throw new Error(`http error! status ${res.status}`);
       }
-      return res;
-    })
-  .then(data => {
       const writeContent = `${activeSectionUsername}: ${contentContainer.value}`
       activeSection.children[1].textContent = writeContent;
       activeSection.classList.remove("active");
       contentContainer.value = "";
-
     })
   .catch(error => {
       console.error("error updating post:", error);
     });
 });
+
+deletePostBtn.addEventListener("click", (e) => {
+  if (!activeSection) return;
+  e.preventDefault();
+
+  fetch('/admin/post/delete', {
+    method: "DELETE",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      date: activeSectionTimeDate,
+      username: activeSectionUsername,
+    })
+  })
+  .then(res => {
+    if (!res.ok) {
+      throw new Error(`http error! status ${res.status}`);
+    }
+    activeSection.remove();
+    contentContainer.value = ""
+  })
+  .catch(error => {
+      console.error("error deleting post:", error);
+    })
+})

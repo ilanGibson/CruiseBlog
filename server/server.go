@@ -84,7 +84,6 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 			s.usernames[cookie.Value] = utils.GetRandValue()
 		}
 		s.blogMu.Unlock()
-		s.LoadPosts()
 		http.Redirect(w, req, "/home", http.StatusSeeOther)
 	}
 }
@@ -173,7 +172,7 @@ func (s *Server) GetPosts(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *Server) LoadPosts() {
+func (s *Server) LoadPosts(callFromServerStartUp bool) {
 	log.Println("reading from disk")
 	var posts []types.Post
 	var err error
@@ -195,28 +194,30 @@ func (s *Server) LoadPosts() {
 	s.blog = posts
 	s.blogMu.Unlock()
 
-	go func() {
-		ticker := time.NewTicker(3 * time.Minute)
-		defer ticker.Stop()
-		for range ticker.C {
-			log.Println("reading from disk")
-			posts, err := utils.GetPostsFromDisk()
-			if err != nil {
-				log.Println("load posts from disk failed: %w", err)
-				continue
-			}
+	if callFromServerStartUp {
+		go func() {
+			ticker := time.NewTicker(3 * time.Minute)
+			defer ticker.Stop()
+			for range ticker.C {
+				log.Println("reading from disk")
+				posts, err := utils.GetPostsFromDisk()
+				if err != nil {
+					log.Println("load posts from disk failed: %w", err)
+					continue
+				}
 
-			s.blogMu.Lock()
-			s.blog = posts
-			s.blogMu.Unlock()
-		}
-	}()
+				s.blogMu.Lock()
+				s.blog = posts
+				s.blogMu.Unlock()
+			}
+		}()
+	}
 }
 
 func (s *Server) UpdatePost(w http.ResponseWriter, req *http.Request) {
 	body, err := (io.ReadAll(req.Body))
 	if err != nil {
-		log.Println("reading request body failed: %w", err)
+		log.Println("reading request body for update failed: %w", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
@@ -229,7 +230,7 @@ func (s *Server) UpdatePost(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	(utils.SetPostUsernameDateHash(&postUpdate))
+	utils.SetPostUsernameDateHash(&postUpdate)
 
 	posts, err := utils.GetPostsFromDisk()
 	if err != nil {
@@ -250,7 +251,64 @@ func (s *Server) UpdatePost(w http.ResponseWriter, req *http.Request) {
 	if err = utils.RewriteBlogDisk(newPosts); err != nil {
 		log.Println("rewrite update amongst all posts failed: %w", err)
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
 	}
+	s.LoadPosts(false)
+}
+
+func (s *Server) DeletePost(w http.ResponseWriter, req *http.Request) {
+	body, err := (io.ReadAll(req.Body))
+	if err != nil {
+		log.Println("reading request body for deletion failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	defer req.Body.Close()
+
+	var postDeletion types.Post
+	if err := json.Unmarshal(body, &postDeletion); err != nil {
+		log.Println("unmarshal post deletion into post failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	utils.SetPostUsernameDateHash(&postDeletion)
+
+	posts, err := utils.GetPostsFromDisk()
+	if err != nil {
+		log.Println("fetch posts for deletion failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	var newPosts []types.Post
+	for _, post := range posts {
+		if post.PostId == postDeletion.PostId {
+			continue
+		}
+		newPosts = append(newPosts, post)
+	}
+
+	if err = utils.RewriteBlogDisk(newPosts); err != nil {
+		log.Println("rewrite all posts minus deletion failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	delMsg := struct {
+		msg string
+	}{
+		"success",
+	}
+
+	deletionSuccess, err := json.Marshal(delMsg)
+	if err != nil {
+		log.Println("marshal delMsg failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	w.Write(deletionSuccess)
+	s.LoadPosts(false)
 }
 
 func (s *Server) SetAdminCookie(w http.ResponseWriter, req *http.Request) {

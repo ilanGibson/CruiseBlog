@@ -21,7 +21,8 @@ func main() {
 	flag.Parse()
 
 	blogSrvr := server.NewServer()
-	blogSrvr.LoadPosts()
+	// (note) LoadPosts take flag if func is called on server start up
+	blogSrvr.LoadPosts(true)
 
 	if *adminLink {
 		blogSrvr.Admin.Key = utils.GetRandValue()
@@ -37,6 +38,7 @@ func main() {
 		http.HandleFunc(path, blogSrvr.SetAdminCookie)
 		http.HandleFunc("/admin/sseEvents", blogSrvr.RequireAuthAdmin(http.HandlerFunc(blogSrvr.SseHandler)))
 		http.HandleFunc("/admin/post/update", blogSrvr.RequireAuthAdmin(http.HandlerFunc(blogSrvr.UpdatePost)))
+		http.HandleFunc("/admin/post/delete", blogSrvr.RequireAuthAdmin(http.HandlerFunc(blogSrvr.DeletePost)))
 		http.HandleFunc("/admin/", blogSrvr.RequireAuthAdmin(http.StripPrefix("/admin", http.FileServer(http.Dir("./static/admin/")))))
 		fmt.Println(path)
 	}
