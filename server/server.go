@@ -144,6 +144,7 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 		// s.Admin.AdminChan <- 1
 
 	} else {
+		// (note) unprocessable entity
 		w.WriteHeader(422)
 	}
 }

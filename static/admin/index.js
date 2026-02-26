@@ -16,11 +16,10 @@ function listPosts() {
       return res.json();
     })
     .then(data => {
-      if (data != null) {
-        postContainer.replaceChildren();
-        for (let i = 0; i < data.length; i++) {
-          newPost(data[i].date, data[i].username, data[i].content);
-        }
+      if (!data) return
+      postContainer.replaceChildren();
+      for (let i = 0; i < data.length; i++) {
+        newPost(data[i].date, data[i].username, data[i].content);
       }
     })
     .catch(err => {

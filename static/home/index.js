@@ -37,11 +37,12 @@ form.addEventListener("submit", function (event) {
         input.value = "";
         bannerAlert.textContent = "Input has been moderated";
         bannerAlert.style.display = 'block';
-        throw new Error
+        return null
       }
       return res.json();
   })
   .then(data => {
+    if (!data) return;
     const today = new Date();
     newPost(data.date, data.username, data.content);
     input.value = "";
@@ -60,11 +61,10 @@ function listPosts() {
       return res.json();
     })
     .then(data => {
-      if (data != null) {
-        blogContainer.replaceChildren();
-        for (let i = 0; i < data.length; i++) {
-          newPost(data[i].date, data[i].username, data[i].content);
-        }
+      if (!data) return;
+      blogContainer.replaceChildren();
+      for (let i = 0; i < data.length; i++) {
+        newPost(data[i].date, data[i].username, data[i].content);
       }
     })
     .catch(err => {
