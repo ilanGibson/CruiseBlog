@@ -22,7 +22,7 @@ type ClientRequest struct {
 }
 
 type Post struct {
-	PostId     string `json:"post_id"`
+	PostId     [32]byte
 	DateOfPost string `json:"date"`
 	Username   string `json:"username"`
 	Content    string `json:"content"`

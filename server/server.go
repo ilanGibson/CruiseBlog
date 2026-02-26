@@ -20,6 +20,9 @@ import (
 
 var userID types.Key
 
+// TODO use this to get specific admin key for comparison
+// var adminID types.Key
+
 type Server struct {
 	blog              []types.Post
 	usernames         map[string]string
@@ -113,6 +116,7 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 
 		date := strings.Split(fmt.Sprint(time.Now()), ".")[0]
 		newPost := types.Post{DateOfPost: date, Username: username, Content: content.Content}
+		utils.SetPostUsernameDateHash(&newPost)
 
 		s.blogMu.Lock()
 		// add post to []Post
@@ -138,7 +142,7 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		s.Admin.AdminChan <- 1
+		// s.Admin.AdminChan <- 1
 
 	} else {
 		w.WriteHeader(422)
@@ -146,6 +150,7 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) GetPosts(w http.ResponseWriter, req *http.Request) {
+	fmt.Println("testimg expiry", s.Admin.IsKeyExpired)
 	s.blogMu.Lock()
 	if _, ok := s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value]; !ok {
 		s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value] = utils.GetRandValue()
@@ -206,6 +211,46 @@ func (s *Server) LoadPosts() {
 			s.blogMu.Unlock()
 		}
 	}()
+}
+
+func (s *Server) UpdatePost(w http.ResponseWriter, req *http.Request) {
+	body, err := (io.ReadAll(req.Body))
+	if err != nil {
+		log.Println("reading request body failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+	defer req.Body.Close()
+
+	var postUpdate types.Post
+	if err := json.Unmarshal(body, &postUpdate); err != nil {
+		log.Println("unmarshal post update into post failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	(utils.SetPostUsernameDateHash(&postUpdate))
+
+	posts, err := utils.GetPostsFromDisk()
+	if err != nil {
+		log.Println("fetch posts for update failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+		return
+	}
+
+	var newPosts []types.Post
+	for _, post := range posts {
+		if post.PostId == postUpdate.PostId {
+			newPosts = append(newPosts, postUpdate)
+			continue
+		}
+		newPosts = append(newPosts, post)
+	}
+
+	if err = utils.RewriteBlogDisk(newPosts); err != nil {
+		log.Println("rewrite update amongst all posts failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
 }
 
 func (s *Server) SetAdminCookie(w http.ResponseWriter, req *http.Request) {
@@ -311,6 +356,7 @@ func (s *Server) RequireAuthAdmin(next http.Handler) http.HandlerFunc {
 		next.ServeHTTP(w, req)
 	}
 }
+
 func (s *Server) RequireAuthHome() http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
 		username, err := req.Cookie("session")
@@ -320,11 +366,14 @@ func (s *Server) RequireAuthHome() http.HandlerFunc {
 			return
 		}
 
+		fmt.Println("testing rquireauth calls")
 		ctx := context.WithValue(req.Context(), userID, username)
 		switch req.Method {
 		case "POST":
+			fmt.Println("testing POST calls")
 			s.AddPost(w, req.WithContext(ctx))
 		case "GET":
+			fmt.Println("testing GET calls")
 			s.GetPosts(w, req.WithContext(ctx))
 		}
 	}

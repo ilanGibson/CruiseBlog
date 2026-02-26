@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"crypto/sha256"
 	"encoding/json"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
@@ -47,6 +48,36 @@ func WritePost(post []byte) error {
 		log.Println("write new post to blog.jsonl for write failed: %w", err)
 		return err
 	}
+	return nil
+}
+
+func RewriteBlogDisk(posts []types.Post) error {
+	usernameFileMutex.Lock()
+	defer usernameFileMutex.Unlock()
+
+	file, err := os.OpenFile("temp.jsonl", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+	if err != nil {
+		log.Println("open file temp.jsonl failed: %w", err)
+		return err
+	}
+	defer file.Close()
+
+	for _, post := range posts {
+
+		postBytes, err := json.Marshal(post)
+		if err != nil {
+			log.Println("marshal postBytes failed: %w", err)
+			return err
+		}
+
+		postBytes = append(postBytes, '\n')
+		_, err = file.Write(postBytes)
+		if err != nil {
+			log.Println("write new post to file failed: %w", err)
+			return err
+		}
+	}
+	os.Rename("temp.jsonl", "blog.jsonl")
 	return nil
 }
 
@@ -107,6 +138,16 @@ func hashIp(ip string) string {
 
 	ipHash := hash.Sum(nil)
 	return string(ipHash)
+}
+
+func SetPostUsernameDateHash(post *types.Post) {
+	s := fmt.Sprintf("%v%v", post.Username, post.DateOfPost)
+
+	hash := sha256.New()
+	hash.Write([]byte(s))
+	bs := hash.Sum(nil)
+
+	post.PostId = [32]byte(bs)
 }
 
 func WriteIpHash(ip string, serverHashes *types.IpSlice) {

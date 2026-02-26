@@ -17,6 +17,7 @@ var Users []string
 func main() {
 	adminLink := flag.Bool("a", false, "flag to print link for admin cookie")
 	port := flag.String("p", ":8090", "server port")
+
 	flag.Parse()
 
 	blogSrvr := server.NewServer()
@@ -35,6 +36,7 @@ func main() {
 		path := fmt.Sprintf("/admin/%v", blogSrvr.Admin.Key)
 		http.HandleFunc(path, blogSrvr.SetAdminCookie)
 		http.HandleFunc("/admin/sseEvents", blogSrvr.RequireAuthAdmin(http.HandlerFunc(blogSrvr.SseHandler)))
+		http.HandleFunc("/admin/post/update", blogSrvr.RequireAuthAdmin(http.HandlerFunc(blogSrvr.UpdatePost)))
 		http.HandleFunc("/admin/", blogSrvr.RequireAuthAdmin(http.StripPrefix("/admin", http.FileServer(http.Dir("./static/admin/")))))
 		fmt.Println(path)
 	}
