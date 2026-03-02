@@ -23,6 +23,53 @@ var userID types.Key
 // TODO use this to get specific admin key for comparison
 // var adminID types.Key
 
+type Broadcaster struct {
+	mu             sync.Mutex
+	subscriberLine chan types.Event
+}
+
+func NewBroadcaster() *Broadcaster {
+	return &Broadcaster{}
+}
+
+func (b *Broadcaster) register() chan types.Event {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	ch := make(chan types.Event)
+	b.subscriberLine = ch
+
+	return ch
+}
+
+func (b *Broadcaster) unregister() {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	if b.subscriberLine != nil {
+		close(b.subscriberLine)
+		b.subscriberLine = nil
+	}
+}
+
+func (b *Broadcaster) publish(evt types.Event) {
+	b.mu.Lock()
+	ch := b.subscriberLine
+	b.mu.Unlock()
+
+	if ch == nil {
+		// (note) no subscriber
+		fmt.Println("no subs to chan")
+		return
+	}
+	select {
+	case ch <- evt:
+		log.Println("event sent to subscriber")
+	default:
+		return
+	}
+}
+
 type Server struct {
 	blog              []types.Post
 	usernames         map[string]string
@@ -31,11 +78,12 @@ type Server struct {
 	lastServerRestart time.Time
 	ipHashes          types.IpSlice
 	Admin             types.Admin
+	broadcaster       *Broadcaster
 }
 
 func NewServer() *Server {
-	hashes := utils.NewIpSlice()
-	return &Server{blog: make([]types.Post, 0), usernames: make(map[string]string), lastServerRestart: time.Now(), ipHashes: *hashes}
+	return &Server{blog: make([]types.Post, 0), usernames: make(map[string]string), lastServerRestart: time.Now(), ipHashes: *utils.NewIpSlice(),
+		broadcaster: NewBroadcaster()}
 }
 
 func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
@@ -50,13 +98,12 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 		// IpIsUnique returns true is ip in unique
 		ip := strings.Split(req.RemoteAddr, ":")[0]
 		if uniqueIP := utils.IpIsUnique(ip, &s.ipHashes); uniqueIP == true {
-			s.uniqueUsers.Add(1)
-			s.Admin.AdminChan <- 1
 			utils.WriteIpHash(ip, &s.ipHashes)
 		}
 
 		var UUID [16]byte
 		_, err := rand.Read(UUID[:])
+
 		// default err handling for handler
 		if err != nil {
 			log.Println("uuid generation failed: %w", err)
@@ -71,6 +118,11 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 		cookie := new(http.Cookie)
 		cookie.Name = "session"
 		cookie.Value = userUUID
+		s.uniqueUsers.Add(1)
+		s.broadcaster.publish(types.Event{
+			TotalUsers: int(s.uniqueUsers.Load()),
+			TotalPosts: len(s.blog),
+		})
 		http.SetCookie(w, cookie)
 		http.Redirect(w, req, "/home/about.html", http.StatusSeeOther)
 	} else {
@@ -82,6 +134,11 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 		s.blogMu.Lock()
 		if _, ok := s.usernames[cookie.Value]; !ok {
 			s.usernames[cookie.Value] = utils.GetRandValue()
+			s.uniqueUsers.Add(1)
+			s.broadcaster.publish(types.Event{
+				TotalUsers: int(s.uniqueUsers.Load()),
+				TotalPosts: len(s.blog),
+			})
 		}
 		s.blogMu.Unlock()
 		http.Redirect(w, req, "/home", http.StatusSeeOther)
@@ -141,7 +198,10 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 			return
 		}
-		// s.Admin.AdminChan <- 1
+		s.broadcaster.publish(types.Event{
+			TotalUsers: int(s.uniqueUsers.Load()),
+			TotalPosts: len(s.blog),
+		})
 
 	} else {
 		// (note) unprocessable entity
@@ -153,6 +213,11 @@ func (s *Server) GetPosts(w http.ResponseWriter, req *http.Request) {
 	s.blogMu.Lock()
 	if _, ok := s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value]; !ok {
 		s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value] = utils.GetRandValue()
+		s.uniqueUsers.Add(1)
+		s.broadcaster.publish(types.Event{
+			TotalUsers: int(s.uniqueUsers.Load()),
+			TotalPosts: len(s.blog),
+		})
 	}
 
 	f, err := json.Marshal(s.blog)
@@ -282,6 +347,7 @@ func (s *Server) DeletePost(w http.ResponseWriter, req *http.Request) {
 	}
 
 	var newPosts []types.Post
+	// (note) deletion operation
 	for _, post := range posts {
 		if post.PostId == postDeletion.PostId {
 			continue
@@ -295,20 +361,14 @@ func (s *Server) DeletePost(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	delMsg := struct {
-		msg string
-	}{
-		"success",
-	}
+	s.blogMu.Lock()
+	s.blog = newPosts
+	s.blogMu.Unlock()
 
-	deletionSuccess, err := json.Marshal(delMsg)
-	if err != nil {
-		log.Println("marshal delMsg failed: %w", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-	w.Write(deletionSuccess)
-	s.LoadPosts(false)
+	s.broadcaster.publish(types.Event{
+		TotalUsers: int(s.uniqueUsers.Load()),
+		TotalPosts: len(s.blog),
+	})
 }
 
 func (s *Server) SetAdminCookie(w http.ResponseWriter, req *http.Request) {
@@ -354,51 +414,64 @@ func (s *Server) ServerInfo(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) SseHandler(w http.ResponseWriter, req *http.Request) {
+	flusher, ok := w.(http.Flusher)
+	if !ok {
+		http.Error(w, "Streaming Unsupported", http.StatusInternalServerError)
+		return
+	}
+
 	w.Header().Set("Content-Type", "text/event-stream")
 	w.Header().Set("Cache-Control", "no-cache")
 	w.Header().Set("Connection", "keep-alive")
 
-	// create a channel for client disconnection
-	clientGone := req.Context().Done()
+	ch := s.broadcaster.register()
+	defer s.broadcaster.unregister()
 
-	rc := http.NewResponseController(w)
+	s.blogMu.Lock()
+	snapShot := types.SseMsg{
+		TotalUsers: int(s.uniqueUsers.Load()),
+		TotalPosts: len(s.blog),
+	}
+	s.blogMu.Unlock()
+
+	snapShotBytes, err := json.Marshal(snapShot)
+	if err != nil {
+		log.Println("marshal snapShot failed: %w", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+
+	fmt.Fprintf(w, "data: %s\n\n", snapShotBytes)
+	flusher.Flush()
+	log.Println("snapShot sent")
+
+	// create a channel for client disconnection
+	clientGone := req.Context()
 
 	for {
 		select {
-		case <-clientGone:
-			fmt.Println("client disconnected")
-			// close(clientChan)
-			return
+		case event, ok := <-ch:
+			if !ok {
+				return
+			}
 
-		case <-s.Admin.AdminChan:
-			s.blogMu.Lock()
 			msg := types.SseMsg{
-				TotalUsers: int(s.uniqueUsers.Load()),
-				TotalPosts: len(s.blog),
+				TotalUsers: event.TotalUsers,
+				TotalPosts: event.TotalPosts,
 			}
 			msgBytes, err := json.Marshal(msg)
-			s.blogMu.Unlock()
-
 			if err != nil {
 				log.Println("marshal total users/posts failed: %w", err)
 				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 				return
 			}
 
-			ssePayload := fmt.Sprintf("data: %s\n\n", msgBytes)
-			_, err = w.Write([]byte(ssePayload))
-			if err != nil {
-				log.Println("write total users/posts failed: %w", err)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
+			fmt.Fprintf(w, "data: %s\n\n", msgBytes)
+			flusher.Flush()
+			log.Println("sse event sent")
 
-			err = rc.Flush()
-			if err != nil {
-				log.Println("flush total users/posts failed: %w", err)
-				http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-				return
-			}
+		case <-clientGone.Done():
+			fmt.Println("client disconnected")
+			return
 		}
 	}
 }

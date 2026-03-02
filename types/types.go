@@ -12,6 +12,11 @@ type Admin struct {
 	PathExpireLength time.Duration
 }
 
+type Event struct {
+	TotalUsers int
+	TotalPosts int
+}
+
 type SseMsg struct {
 	TotalUsers int `json:"total_users"`
 	TotalPosts int `json:"total_posts"`
