@@ -150,7 +150,6 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) GetPosts(w http.ResponseWriter, req *http.Request) {
-	fmt.Println("testimg expiry", s.Admin.IsKeyExpired)
 	s.blogMu.Lock()
 	if _, ok := s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value]; !ok {
 		s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value] = utils.GetRandValue()
@@ -313,8 +312,9 @@ func (s *Server) DeletePost(w http.ResponseWriter, req *http.Request) {
 }
 
 func (s *Server) SetAdminCookie(w http.ResponseWriter, req *http.Request) {
-	if s.Admin.HasKeyBeenUsed || s.Admin.IsKeyExpired {
+	if s.Admin.HasPathBeenUsed || s.Admin.IsPathExpired {
 		http.Redirect(w, req, "/", http.StatusUnauthorized)
+		return
 	}
 
 	var randCookieVal [16]byte
@@ -324,12 +324,13 @@ func (s *Server) SetAdminCookie(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
 		return
 	}
+	s.Admin.HasPathBeenUsed = true
 
 	adminCookie := hex.EncodeToString(randCookieVal[:])
 	cookie := new(http.Cookie)
 	cookie.Name = "admin_session"
 	cookie.Value = adminCookie
-	s.Admin.HasKeyBeenUsed = true
+	s.Admin.Key = adminCookie
 	http.SetCookie(w, cookie)
 	http.Redirect(w, req, "/", http.StatusSeeOther)
 }
@@ -404,15 +405,21 @@ func (s *Server) SseHandler(w http.ResponseWriter, req *http.Request) {
 
 func (s *Server) RequireAuthAdmin(next http.Handler) http.HandlerFunc {
 	return func(w http.ResponseWriter, req *http.Request) {
-		_, err := req.Cookie("admin_session")
+		adminUsername, err := req.Cookie("admin_session")
 		if err != nil {
 			log.Println("get admin_session cookie failed: %w", err)
 			http.Redirect(w, req, "/", http.StatusUnauthorized)
 			return
 		}
 
-		fmt.Println("err nil")
-		next.ServeHTTP(w, req)
+		t := adminUsername.Value
+		if t == s.Admin.Key {
+			next.ServeHTTP(w, req)
+			return
+		}
+
+		log.Println("admin auth cookie failed")
+		http.Redirect(w, req, "/", http.StatusUnauthorized)
 	}
 }
 

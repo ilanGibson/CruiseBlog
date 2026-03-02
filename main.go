@@ -25,16 +25,15 @@ func main() {
 	blogSrvr.LoadPosts(true)
 
 	if *adminLink {
-		blogSrvr.Admin.Key = utils.GetRandValue()
-		blogSrvr.Admin.KeyExpireLength = 15 * time.Minute
-		blogSrvr.Admin.AdminChan = make(chan int, 1)
+		blogSrvr.Admin.Path = utils.GetRandValue()
+		blogSrvr.Admin.PathExpireLength = 15 * time.Minute
 
 		go func() {
-			<-time.After(blogSrvr.Admin.KeyExpireLength)
-			blogSrvr.Admin.IsKeyExpired = true
+			<-time.After(blogSrvr.Admin.PathExpireLength)
+			blogSrvr.Admin.IsPathExpired = true
 		}()
 
-		path := fmt.Sprintf("/admin/%v", blogSrvr.Admin.Key)
+		path := fmt.Sprintf("/admin/%v", blogSrvr.Admin.Path)
 		http.HandleFunc(path, blogSrvr.SetAdminCookie)
 		http.HandleFunc("/admin/sseEvents", blogSrvr.RequireAuthAdmin(http.HandlerFunc(blogSrvr.SseHandler)))
 		http.HandleFunc("/admin/post/update", blogSrvr.RequireAuthAdmin(http.HandlerFunc(blogSrvr.UpdatePost)))

@@ -5,11 +5,11 @@ import "time"
 type Key string
 
 type Admin struct {
-	Key             string
-	KeyExpireLength time.Duration
-	IsKeyExpired    bool
-	HasKeyBeenUsed  bool
-	AdminChan       chan int
+	Key              string
+	Path             string
+	IsPathExpired    bool
+	HasPathBeenUsed  bool
+	PathExpireLength time.Duration
 }
 
 type SseMsg struct {
