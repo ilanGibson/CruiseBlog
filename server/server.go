@@ -20,19 +20,16 @@ import (
 
 var userID types.Key
 
-// TODO use this to get specific admin key for comparison
-// var adminID types.Key
-
-type Broadcaster struct {
+type broadcaster struct {
 	mu             sync.Mutex
 	subscriberLine chan types.Event
 }
 
-func NewBroadcaster() *Broadcaster {
-	return &Broadcaster{}
+func newBroadcaster() *broadcaster {
+	return &broadcaster{}
 }
 
-func (b *Broadcaster) register() chan types.Event {
+func (b *broadcaster) register() chan types.Event {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -42,7 +39,7 @@ func (b *Broadcaster) register() chan types.Event {
 	return ch
 }
 
-func (b *Broadcaster) unregister() {
+func (b *broadcaster) unregister() {
 	b.mu.Lock()
 	defer b.mu.Unlock()
 
@@ -52,7 +49,7 @@ func (b *Broadcaster) unregister() {
 	}
 }
 
-func (b *Broadcaster) publish(evt types.Event) {
+func (b *broadcaster) publish(evt types.Event) {
 	b.mu.Lock()
 	ch := b.subscriberLine
 	b.mu.Unlock()
@@ -78,12 +75,12 @@ type Server struct {
 	lastServerRestart time.Time
 	ipHashes          types.IpSlice
 	Admin             types.Admin
-	broadcaster       *Broadcaster
+	broadcaster       *broadcaster
 }
 
 func NewServer() *Server {
 	return &Server{blog: make([]types.Post, 0), usernames: make(map[string]string), lastServerRestart: time.Now(), ipHashes: *utils.NewIpSlice(),
-		broadcaster: NewBroadcaster()}
+		broadcaster: newBroadcaster()}
 }
 
 func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
@@ -145,7 +142,7 @@ func (s *Server) JoinServer(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
+func (s *Server) addPost(w http.ResponseWriter, req *http.Request) {
 	s.blogMu.Lock()
 	if _, ok := s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value]; !ok {
 		s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value] = utils.GetRandValue()
@@ -209,7 +206,7 @@ func (s *Server) AddPost(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *Server) GetPosts(w http.ResponseWriter, req *http.Request) {
+func (s *Server) getPosts(w http.ResponseWriter, req *http.Request) {
 	s.blogMu.Lock()
 	if _, ok := s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value]; !ok {
 		s.usernames[(req.Context().Value(userID)).(*http.Cookie).Value] = utils.GetRandValue()
@@ -395,24 +392,6 @@ func (s *Server) SetAdminCookie(w http.ResponseWriter, req *http.Request) {
 	http.Redirect(w, req, "/", http.StatusSeeOther)
 }
 
-func (s *Server) ServerInfo(w http.ResponseWriter, req *http.Request) {
-	ServerInfo := types.ServerInfo{UniqueUsers: s.uniqueUsers.Load(), LastServerRestart: s.lastServerRestart, ServerAge: time.Duration(time.Since(s.lastServerRestart).Seconds())}
-
-	f, err := json.Marshal(ServerInfo)
-	if err != nil {
-		log.Println("marshal ServerInfo failed: %w", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-
-	_, err = w.Write(f)
-	if err != nil {
-		log.Println("write newPost to response failed: %w", err)
-		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
-		return
-	}
-}
-
 func (s *Server) SseHandler(w http.ResponseWriter, req *http.Request) {
 	flusher, ok := w.(http.Flusher)
 	if !ok {
@@ -510,10 +489,10 @@ func (s *Server) RequireAuthHome() http.HandlerFunc {
 		switch req.Method {
 		case "POST":
 			fmt.Println("testing POST calls")
-			s.AddPost(w, req.WithContext(ctx))
+			s.addPost(w, req.WithContext(ctx))
 		case "GET":
 			fmt.Println("testing GET calls")
-			s.GetPosts(w, req.WithContext(ctx))
+			s.getPosts(w, req.WithContext(ctx))
 		}
 	}
 }

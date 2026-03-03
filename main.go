@@ -44,7 +44,6 @@ func main() {
 
 	// (note) /api/posts is for client GET & POST methods
 	http.HandleFunc("/api/posts", blogSrvr.RequireAuthHome())
-	http.HandleFunc("/server", blogSrvr.ServerInfo)
 	http.HandleFunc("/", blogSrvr.JoinServer)
 	http.Handle("/home/", http.StripPrefix("/home", http.FileServer(http.Dir("./static/home/"))))
 
