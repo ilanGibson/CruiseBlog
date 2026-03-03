@@ -56,7 +56,6 @@ func (b *broadcaster) publish(evt types.Event) {
 
 	if ch == nil {
 		// (note) no subscriber
-		fmt.Println("no subs to chan")
 		return
 	}
 	select {
@@ -449,7 +448,7 @@ func (s *Server) SseHandler(w http.ResponseWriter, req *http.Request) {
 			log.Println("sse event sent")
 
 		case <-clientGone.Done():
-			fmt.Println("client disconnected")
+			// fmt.Println("client disconnected")
 			return
 		}
 	}
@@ -484,14 +483,11 @@ func (s *Server) RequireAuthHome() http.HandlerFunc {
 			return
 		}
 
-		fmt.Println("testing rquireauth calls")
 		ctx := context.WithValue(req.Context(), userID, username)
 		switch req.Method {
 		case "POST":
-			fmt.Println("testing POST calls")
 			s.addPost(w, req.WithContext(ctx))
 		case "GET":
-			fmt.Println("testing GET calls")
 			s.getPosts(w, req.WithContext(ctx))
 		}
 	}

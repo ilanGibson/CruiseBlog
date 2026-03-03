@@ -50,7 +50,7 @@ function connect() {
   const sseTotalUsers = new EventSource('/admin/sseEvents');
 
   sseTotalUsers.onopen = () => {
-    console.log('connected to sse');
+    // console.log('connected to sse');
   };
 
   sseTotalUsers.onmessage = (event) => {
@@ -60,7 +60,7 @@ function connect() {
   };
 
   sseTotalUsers.onerror = (err) => {
-    console.error('sse error:', err);
+    // console.error('sse error:', err);
   };
 }
 
